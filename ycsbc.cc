@@ -23,8 +23,9 @@ typedef struct WorkloadProperties {
   string filename;
   bool preloaded;
   utils::Properties props;
+  running_times    times;
+  latency_tables   tables;
 } WorkloadProperties;
-
 
 void UsageMessage(const char *command);
 bool StrStartWith(const char *str, const char *pre);
@@ -46,45 +47,6 @@ int DelegateClient(ycsbc::DB *db, ycsbc::CoreWorkload *wl, const int num_ops, bo
   db->Close();
   return oks;
 }
-
-std::map<string, string> default_props = {
-  {"threadcount", "1"},
-  {"dbname", "basic"},
-
-  //
-  // Basicdb config defaults
-  //
-  {"basicdb.verbose", "0"},
-
-  //
-  // splinterdb config defaults
-  //
-  {"splinterdb.filename", "splinterdb.db"},
-  {"splinterdb.cache_size_mb", "4096"},
-  {"splinterdb.disk_size_gb", "128"},
-
-  {"splinterdb.max_key_size", "24"},
-  {"splinterdb.use_log", "1"},
-
-  // All these options use splinterdb's internal defaults
-  {"splinterdb.page_size", "0"},
-  {"splinterdb.extent_size", "0"},
-  {"splinterdb.io_flags", "0"},
-  {"splinterdb.io_perms", "0"},
-  {"splinterdb.io_async_queue_depth", "0"},
-  {"splinterdb.cache_use_stats", "0"},
-  {"splinterdb.cache_logfile", "0"},
-  {"splinterdb.btree_rough_count_height", "0"},
-  {"splinterdb.filter_remainder_size", "0"},
-  {"splinterdb.filter_index_size", "0"},
-  {"splinterdb.memtable_capacity", "0"},
-  {"splinterdb.fanout", "0"},
-  {"splinterdb.max_branches_per_node", "0"},
-  {"splinterdb.use_stats", "0"},
-  {"splinterdb.reclaim_threshold", "0"},
-
-  {"rocksdb.database_filename", "rocksdb.db"},
-};
 
 int main(const int argc, const char *argv[]) {
   utils::Properties props;
@@ -176,6 +138,45 @@ int main(const int argc, const char *argv[]) {
 
   delete db;
 }
+
+std::map<string, string> default_props = {
+  {"threadcount", "1"},
+  {"dbname", "basic"},
+
+  //
+  // Basicdb config defaults
+  //
+  {"basicdb.verbose", "0"},
+
+  //
+  // splinterdb config defaults
+  //
+  {"splinterdb.filename", "splinterdb.db"},
+  {"splinterdb.cache_size_mb", "4096"},
+  {"splinterdb.disk_size_gb", "128"},
+
+  {"splinterdb.max_key_size", "24"},
+  {"splinterdb.use_log", "1"},
+
+  // All these options use splinterdb's internal defaults
+  {"splinterdb.page_size", "0"},
+  {"splinterdb.extent_size", "0"},
+  {"splinterdb.io_flags", "0"},
+  {"splinterdb.io_perms", "0"},
+  {"splinterdb.io_async_queue_depth", "0"},
+  {"splinterdb.cache_use_stats", "0"},
+  {"splinterdb.cache_logfile", "0"},
+  {"splinterdb.btree_rough_count_height", "0"},
+  {"splinterdb.filter_remainder_size", "0"},
+  {"splinterdb.filter_index_size", "0"},
+  {"splinterdb.memtable_capacity", "0"},
+  {"splinterdb.fanout", "0"},
+  {"splinterdb.max_branches_per_node", "0"},
+  {"splinterdb.use_stats", "0"},
+  {"splinterdb.reclaim_threshold", "0"},
+
+  {"rocksdb.database_filename", "rocksdb.db"},
+};
 
 void ParseCommandLine(int argc, const char *argv[], utils::Properties &props, WorkloadProperties &load_workload, vector<WorkloadProperties> &run_workloads) {
   bool saw_load_workload = false;

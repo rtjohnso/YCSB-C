@@ -40,6 +40,8 @@ class Client {
   CoreWorkload &workload_;
   std::string key;
   std::vector<DB::KVPair> pairs;
+  running_times    times;
+  latency_tables   tables;
 };
 
 inline bool Client::DoInsert() {
