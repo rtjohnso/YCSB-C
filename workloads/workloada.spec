@@ -8,7 +8,7 @@
 
 operationcount=10
 workload=com.yahoo.ycsb.workloads.CoreWorkload
-fieldcount=1
+fieldcount=10
 
 readallfields=true
 requestdistribution=zipfian
