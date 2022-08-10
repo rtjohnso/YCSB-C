@@ -30,11 +30,11 @@ class Client {
   
  protected:
   
-  virtual int TransactionRead();
-  virtual int TransactionReadModifyWrite();
-  virtual int TransactionScan();
-  virtual int TransactionUpdate();
-  virtual int TransactionInsert();
+  virtual int TransactionRead(Transaction *txn);
+  virtual int TransactionReadModifyWrite(Transaction *txn);
+  virtual int TransactionScan(Transaction *txn);
+  virtual int TransactionUpdate(Transaction *txn);
+  virtual int TransactionInsert(Transaction *txn);
   
   DB &db_;
   CoreWorkload &workload_;
@@ -45,48 +45,61 @@ class Client {
 inline bool Client::DoInsert() {
   workload_.NextSequenceKey(key);
   workload_.UpdateValues(pairs);
-  return (db_.Insert(workload_.NextTable(), key, pairs) == DB::kOK);
+  int status = -1;
+  Transaction *txn = NULL;
+  do {
+    db_.Begin(&txn);
+    status = db_.Insert(txn, workload_.NextTable(), key, pairs);
+  } while (db_.Commit(&txn) == DB::kErrorConflict);
+  return (status == DB::kOK);
 }
 
 inline bool Client::DoTransaction() {
   int status = -1;
-  switch (workload_.NextOperation()) {
-    case READ:
-      status = TransactionRead();
-      break;
-    case UPDATE:
-      status = TransactionUpdate();
-      break;
-    case INSERT:
-      status = TransactionInsert();
-      break;
-    case SCAN:
-      status = TransactionScan();
-      break;
-    case READMODIFYWRITE:
-      status = TransactionReadModifyWrite();
-      break;
-    default:
-      throw utils::Exception("Operation request is not recognized!");
-  }
-  assert(status >= 0);
+  Transaction *txn = NULL;
+  do {
+    db_.Begin(&txn);
+
+    for (int i = 0; i < workload_.ops_per_transaction(); ++i) {
+      switch (workload_.NextOperation()) {
+      case READ:
+	status = TransactionRead(txn);
+	break;
+      case UPDATE:
+	status = TransactionUpdate(txn);
+	break;
+      case INSERT:
+	status = TransactionInsert(txn);
+	break;
+      case SCAN:
+	status = TransactionScan(txn);
+	break;
+      case READMODIFYWRITE:
+	status = TransactionReadModifyWrite(txn);
+	break;
+      default:
+	throw utils::Exception("Operation request is not recognized!");
+      }
+      assert(status >= 0);
+    }
+  } while (db_.Commit(&txn) == DB::kErrorConflict);
   return (status == DB::kOK);
 }
 
-inline int Client::TransactionRead() {
+inline int Client::TransactionRead(Transaction *txn) {
   const std::string &table = workload_.NextTable();
   const std::string &key = workload_.NextTransactionKey();
   std::vector<DB::KVPair> result;
   if (!workload_.read_all_fields()) {
     std::vector<std::string> fields;
     fields.push_back("field" + workload_.NextFieldName());
-    return db_.Read(table, key, &fields, result);
+    return db_.Read(txn, table, key, &fields, result);
   } else {
-    return db_.Read(table, key, NULL, result);
+    return db_.Read(txn, table, key, NULL, result);
   }
 }
 
-inline int Client::TransactionReadModifyWrite() {
+inline int Client::TransactionReadModifyWrite(Transaction *txn) {
   const std::string &table = workload_.NextTable();
   const std::string &key = workload_.NextTransactionKey();
   std::vector<DB::KVPair> result;
@@ -94,9 +107,9 @@ inline int Client::TransactionReadModifyWrite() {
   if (!workload_.read_all_fields()) {
     std::vector<std::string> fields;
     fields.push_back("field" + workload_.NextFieldName());
-    db_.Read(table, key, &fields, result);
+    db_.Read(txn, table, key, &fields, result);
   } else {
-    db_.Read(table, key, NULL, result);
+    db_.Read(txn, table, key, NULL, result);
   }
 
   std::vector<DB::KVPair> values;
@@ -105,10 +118,10 @@ inline int Client::TransactionReadModifyWrite() {
   } else {
     workload_.BuildUpdate(values);
   }
-  return db_.Update(table, key, values);
+  return db_.Update(txn, table, key, values);
 }
 
-inline int Client::TransactionScan() {
+inline int Client::TransactionScan(Transaction *txn) {
   const std::string &table = workload_.NextTable();
   const std::string &key = workload_.NextTransactionKey();
   int len = workload_.NextScanLength();
@@ -116,13 +129,13 @@ inline int Client::TransactionScan() {
   if (!workload_.read_all_fields()) {
     std::vector<std::string> fields;
     fields.push_back("field" + workload_.NextFieldName());
-    return db_.Scan(table, key, len, &fields, result);
+    return db_.Scan(txn, table, key, len, &fields, result);
   } else {
-    return db_.Scan(table, key, len, NULL, result);
+    return db_.Scan(txn, table, key, len, NULL, result);
   }
 }
 
-inline int Client::TransactionUpdate() {
+inline int Client::TransactionUpdate(Transaction *txn) {
   const std::string &table = workload_.NextTable();
   const std::string &key = workload_.NextTransactionKey();
   std::vector<DB::KVPair> values;
@@ -131,15 +144,15 @@ inline int Client::TransactionUpdate() {
   } else {
     workload_.BuildUpdate(values);
   }
-  return db_.Update(table, key, values);
+  return db_.Update(txn, table, key, values);
 }
 
-inline int Client::TransactionInsert() {
+inline int Client::TransactionInsert(Transaction *txn) {
   const std::string &table = workload_.NextTable();
   workload_.NextSequenceKey(key);
   std::vector<DB::KVPair> values;
   workload_.BuildValues(values);
-  return db_.Insert(table, key, values);
+  return db_.Insert(txn, table, key, values);
 } 
 
 } // ycsbc

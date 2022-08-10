@@ -141,6 +141,9 @@ class CoreWorkload {
   static const std::string RECORD_COUNT_PROPERTY;
   static const std::string OPERATION_COUNT_PROPERTY;
 
+  static const std::string OPS_PER_TRANSACTION_PROPERTY;
+  static const std::string OPS_PER_TRANSACTION_DEFAULT;
+
   ///
   /// Initialize the scenario.
   /// Called once, in the main client thread, before any operations are started.
@@ -164,6 +167,7 @@ class CoreWorkload {
   
   bool read_all_fields() const { return read_all_fields_; }
   bool write_all_fields() const { return write_all_fields_; }
+  int ops_per_transaction() const { return ops_per_transaction_; }
 
   CoreWorkload() :
       generator_(),
@@ -214,7 +218,7 @@ class CoreWorkload {
   bool ordered_inserts_;
   size_t record_count_;
   int zero_padding_;
-
+  int ops_per_transaction_;
   std::uniform_int_distribution<char> uniform_letter_dist_;
 };
 
