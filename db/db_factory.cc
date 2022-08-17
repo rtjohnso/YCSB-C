@@ -17,6 +17,7 @@
 #include "db/splinter_db.h"
 #include "db/transactional_splinter_db.h"
 #include "db/rocks_db.h"
+#include "db/transaction_rocks_db.h"
 
 using namespace std;
 using ycsbc::DB;
@@ -34,6 +35,10 @@ DB* DBFactory::CreateDB(utils::Properties &props, bool preloaded) {
     return new RedisDB(props["host"].c_str(), port, slaves);
   } else if (props["dbname"] == "rocksdb") {
     return new RocksDB(props, preloaded);
+  } else if (props["dbname"] == "transaction_rocksdb") {
+    return new TransactionRocksDB(props, preloaded);
+  } else if (props["dbname"] == "optimistic_transaction_rocksdb") {
+    return new OptimisticTransactionRocksDB(props, preloaded);
   } else if (props["dbname"] == "splinterdb") {
     return new SplinterDB(props, preloaded);
   } else if (props["dbname"] == "transactional_splinterdb") {
