@@ -81,7 +81,9 @@ void TransactionRocksDB::Init() {}
 void TransactionRocksDB::Close() {}
 
 void TransactionRocksDB::Begin(Transaction **txn) {
-  *txn = new RocksDBTransaction();
+  if (*txn == NULL) {
+    *txn = new RocksDBTransaction();
+  }
   ((RocksDBTransaction *)*txn)->handle = db->BeginTransaction(woptions);
 }
 
@@ -89,14 +91,15 @@ int TransactionRocksDB::Commit(Transaction **txn) {
   rocksdb::Transaction *txn_handle = ((RocksDBTransaction *)*txn)->handle;
   rocksdb::Status s = txn_handle->Commit();
   delete txn_handle;
-  delete *txn;
-  *txn = NULL;
 
   if (s.ok()) {
+    delete *txn;
+    *txn = NULL;
+
     return DB::kOK;
   }
 
-  if (s.IsAborted() || s.IsTimedOut()) {
+  if (s.IsBusy()) {
     return DB::kErrorConflict;
   }
 

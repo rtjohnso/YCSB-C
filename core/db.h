@@ -9,15 +9,15 @@
 #ifndef YCSB_C_DB_H_
 #define YCSB_C_DB_H_
 
-#include <vector>
 #include <string>
-
-#include "transaction.h"
+#include <vector>
 
 namespace ycsbc {
 
+class Transaction;
+
 class DB {
- public:
+public:
   typedef std::pair<std::string, std::string> KVPair;
   static const int kOK = 0;
   static const int kErrorNoData = 1;
@@ -25,14 +25,16 @@ class DB {
   static const int kErrorNotSupport = 3;
   ///
   /// Initializes any state for accessing this DB.
-  /// Called once per DB client (thread); there is a single DB instance globally.
+  /// Called once per DB client (thread); there is a single DB instance
+  /// globally.
   ///
-  virtual void Init() { }
+  virtual void Init() {}
   ///
   /// Clears any state for accessing this DB.
-  /// Called once per DB client (thread); there is a single DB instance globally.
+  /// Called once per DB client (thread); there is a single DB instance
+  /// globally.
   ///
-  virtual void Close() { }
+  virtual void Close() {}
   ///
   /// Reads a record from the database.
   /// Field/value pairs from the result are stored in a vector.
@@ -92,18 +94,12 @@ class DB {
   /// @return Zero on success, a non-zero error code on error.
   ///
   virtual int Delete(const std::string &table, const std::string &key) = 0;
-  
-  virtual ~DB() { }
-  
-  virtual void
-  Begin(Transaction **txn)
-  {}
 
-  virtual int
-  Commit(Transaction **txn)
-  {
-    return 0;
-  }
+  virtual ~DB() {}
+
+  virtual void Begin(Transaction **txn) {}
+
+  virtual int Commit(Transaction **txn) { return 0; }
 
   ///
   /// Reads a record from the database.
@@ -116,13 +112,10 @@ class DB {
   /// @param result A vector of field/value pairs for the result.
   /// @return Zero on success, or a non-zero error code on error/record-miss.
   ///
-  virtual int
-  Read(Transaction                    *txn,
-       const std::string              &table,
-       const std::string              &key,
-       const std::vector<std::string> *fields,
-       std::vector<KVPair>            &result)
-  {
+  virtual int Read(Transaction *txn, const std::string &table,
+                   const std::string &key,
+                   const std::vector<std::string> *fields,
+                   std::vector<KVPair> &result) {
     return Read(table, key, fields, result);
   }
   ///
@@ -138,14 +131,10 @@ class DB {
   ///        pairs for one record
   /// @return Zero on success, or a non-zero error code on error.
   ///
-  virtual int
-  Scan(Transaction                      *txn,
-       const std::string                &table,
-       const std::string                &key,
-       int                               record_count,
-       const std::vector<std::string>   *fields,
-       std::vector<std::vector<KVPair>> &result)
-  {
+  virtual int Scan(Transaction *txn, const std::string &table,
+                   const std::string &key, int record_count,
+                   const std::vector<std::string> *fields,
+                   std::vector<std::vector<KVPair>> &result) {
     return Scan(table, key, record_count, fields, result);
   }
 
@@ -160,12 +149,8 @@ class DB {
   /// @param values A vector of field/value pairs to update in the record.
   /// @return Zero on success, a non-zero error code on error.
   ///
-  virtual int
-  Update(Transaction         *txn,
-	 const std::string   &table,
-	 const std::string   &key,
-	 std::vector<KVPair> &values)
-  {
+  virtual int Update(Transaction *txn, const std::string &table,
+                     const std::string &key, std::vector<KVPair> &values) {
     return Update(table, key, values);
   }
   ///
@@ -178,12 +163,8 @@ class DB {
   /// @param values A vector of field/value pairs to insert in the record.
   /// @return Zero on success, a non-zero error code on error.
   ///
-  virtual int
-  Insert(Transaction         *txn,
-	 const std::string   &table,
-	 const std::string   &key,
-	 std::vector<KVPair> &values)
-  {
+  virtual int Insert(Transaction *txn, const std::string &table,
+                     const std::string &key, std::vector<KVPair> &values) {
     return Insert(table, key, values);
   }
   ///
@@ -194,13 +175,12 @@ class DB {
   /// @param key The key of the record to delete.
   /// @return Zero on success, a non-zero error code on error.
   ///
-  virtual int
-  Delete(Transaction *txn, const std::string &table, const std::string &key)
-  {
+  virtual int Delete(Transaction *txn, const std::string &table,
+                     const std::string &key) {
     return Delete(table, key);
   }
 };
 
-} // ycsbc
+} // namespace ycsbc
 
 #endif // YCSB_C_DB_H_
