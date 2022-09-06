@@ -14,6 +14,7 @@
 #include "transaction.h"
 #include "utils.h"
 #include <string>
+#include <atomic>
 
 namespace ycsbc {
 
@@ -22,13 +23,19 @@ public:
   Client(DB &db, CoreWorkload &wl) : db_(db), workload_(wl) {
     workload_.InitKeyBuffer(key);
     workload_.InitPairs(pairs);
+
+    abort_cnt = 0;
   }
 
   virtual bool DoInsert();
   virtual bool DoTransaction();
 
-  virtual ~Client() {}
+  virtual ~Client() {
+    Client::total_abort_cnt += abort_cnt;
+  }
 
+  
+  static std::atomic<unsigned long> total_abort_cnt;
 protected:
   virtual int TransactionRead(Transaction *txn);
   virtual int TransactionReadModifyWrite(Transaction *txn);
@@ -49,6 +56,8 @@ protected:
   CoreWorkload &workload_;
   std::string key;
   std::vector<DB::KVPair> pairs;
+
+  unsigned long abort_cnt;
 };
 
 inline bool Client::DoInsert() {
@@ -56,10 +65,9 @@ inline bool Client::DoInsert() {
   workload_.UpdateValues(pairs);
   int status = -1;
   Transaction *txn = NULL;
-  do {
-    db_.Begin(&txn);
-    status = db_.Insert(txn, workload_.NextTable(), key, pairs);
-  } while (db_.Commit(&txn) == DB::kErrorConflict);
+  db_.Begin(&txn);
+  status = db_.Insert(txn, workload_.NextTable(), key, pairs);
+  db_.Commit(&txn);
   return (status == DB::kOK);
 }
 
@@ -69,7 +77,9 @@ inline bool Client::DoTransaction() {
 
   db_.Begin(&txn);
 
-  txn->SetTransactionOperationsSize(workload_.ops_per_transaction());
+  assert(!txn->IsAborted());
+
+  txn->ReadyToRecordOperations(workload_.ops_per_transaction());
   for (int i = 0; i < workload_.ops_per_transaction(); ++i) {
     switch (workload_.NextOperation()) {
     case READ:
@@ -91,12 +101,20 @@ inline bool Client::DoTransaction() {
       throw utils::Exception("Operation request is not recognized!");
     }
     assert(status >= 0);
+
+    if (status == DB::kErrorConflict) {
+      txn->SetAborted(true);
+    }
   }
 
   bool need_retry = db_.Commit(&txn) == DB::kErrorConflict;
 
   while (need_retry) {
+    ++abort_cnt;
+    
     db_.Begin(&txn);
+
+    txn->SetAborted(false);
 
     for (unsigned long i = 0; i < txn->GetTransactionOperationsSize(); ++i) {
       TransactionOperation &top = txn->GetOperation(i);
@@ -120,12 +138,17 @@ inline bool Client::DoTransaction() {
         throw utils::Exception("Operation request is not recognized!");
       }
       assert(status >= 0);
+
+      if (status == DB::kErrorConflict) {
+        txn->SetAborted(true);
+        break;
+      }
     }
 
     need_retry = db_.Commit(&txn) == DB::kErrorConflict;
   }
 
-  return (status == DB::kOK);
+  return true;
 }
 
 inline int Client::TransactionRead(Transaction *txn) {
@@ -133,6 +156,11 @@ inline int Client::TransactionRead(Transaction *txn) {
   top.op = READ;
   top.table = workload_.NextTable();
   top.key = workload_.NextTransactionKey();
+
+  if (txn->IsAborted()) {
+    return DB::kErrorConflict;
+  }
+
   std::vector<DB::KVPair> result;
   if (!workload_.read_all_fields()) {
     std::vector<std::string> fields;
@@ -148,6 +176,17 @@ inline int Client::TransactionReadModifyWrite(Transaction *txn) {
   top.op = READMODIFYWRITE;
   top.table = workload_.NextTable();
   top.key = workload_.NextTransactionKey();
+
+  if (workload_.write_all_fields()) {
+    workload_.BuildValues(top.values);
+  } else {
+    workload_.BuildUpdate(top.values);
+  }
+
+  if (txn->IsAborted()) {
+    return DB::kErrorConflict;
+  }
+
   std::vector<DB::KVPair> result;
 
   if (!workload_.read_all_fields()) {
@@ -158,11 +197,6 @@ inline int Client::TransactionReadModifyWrite(Transaction *txn) {
     db_.Read(txn, top.table, top.key, NULL, result);
   }
 
-  if (workload_.write_all_fields()) {
-    workload_.BuildValues(top.values);
-  } else {
-    workload_.BuildUpdate(top.values);
-  }
   return db_.Update(txn, top.table, top.key, top.values);
 }
 
@@ -172,6 +206,11 @@ inline int Client::TransactionScan(Transaction *txn) {
   top.table = workload_.NextTable();
   top.key = workload_.NextTransactionKey();
   top.len = workload_.NextScanLength();
+
+  if (txn->IsAborted()) {
+    return DB::kErrorConflict;
+  }
+
   std::vector<std::vector<DB::KVPair>> result;
   if (!workload_.read_all_fields()) {
     std::vector<std::string> fields;
@@ -192,6 +231,11 @@ inline int Client::TransactionUpdate(Transaction *txn) {
   } else {
     workload_.BuildUpdate(top.values);
   }
+
+  if (txn->IsAborted()) {
+    return DB::kErrorConflict;
+  }
+
   return db_.Update(txn, top.table, top.key, top.values);
 }
 
@@ -203,11 +247,19 @@ inline int Client::TransactionInsert(Transaction *txn) {
   top.key = key;
   workload_.BuildValues(top.values);
 
+  if (txn->IsAborted()) {
+    return DB::kErrorConflict;
+  }
+
   return db_.Insert(txn, top.table, top.key, top.values);
 }
 
 inline int Client::TransactionReadRetry(Transaction *txn,
                                         TransactionOperation &top) {
+  if (txn->IsAborted()) {
+    return DB::kErrorConflict;
+  }
+
   std::vector<DB::KVPair> result;
   if (!workload_.read_all_fields()) {
     std::vector<std::string> fields;
@@ -220,6 +272,9 @@ inline int Client::TransactionReadRetry(Transaction *txn,
 
 inline int Client::TransactionReadModifyWriteRetry(Transaction *txn,
                                                    TransactionOperation &top) {
+  if (txn->IsAborted()) {
+    return DB::kErrorConflict;
+  }
   std::vector<DB::KVPair> result;
 
   if (!workload_.read_all_fields()) {
@@ -235,6 +290,9 @@ inline int Client::TransactionReadModifyWriteRetry(Transaction *txn,
 
 inline int Client::TransactionScanRetry(Transaction *txn,
                                         TransactionOperation &top) {
+  if (txn->IsAborted()) {
+    return DB::kErrorConflict;
+  }
   std::vector<std::vector<DB::KVPair>> result;
   if (!workload_.read_all_fields()) {
     std::vector<std::string> fields;
@@ -247,11 +305,17 @@ inline int Client::TransactionScanRetry(Transaction *txn,
 
 inline int Client::TransactionUpdateRetry(Transaction *txn,
                                           TransactionOperation &top) {
+  if (txn->IsAborted()) {
+    return DB::kErrorConflict;
+  }
   return db_.Update(txn, top.table, top.key, top.values);
 }
 
 inline int Client::TransactionInsertRetry(Transaction *txn,
                                           TransactionOperation &top) {
+  if (txn->IsAborted()) {
+    return DB::kErrorConflict;
+  }
   return db_.Insert(txn, top.table, top.key, top.values);
 }
 

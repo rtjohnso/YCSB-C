@@ -18,9 +18,14 @@ struct TransactionOperation {
 
 class Transaction {
 public:
-  Transaction() { next_op = 0; };
+  Transaction() : next_op(0), is_aborted(false){};
 
-  void SetTransactionOperationsSize(unsigned long size) { ops.resize(size); };
+  virtual ~Transaction(){};
+
+  void ReadyToRecordOperations(unsigned long size) {
+    ops.resize(size);
+    next_op = 0;
+  };
 
   unsigned long GetTransactionOperationsSize() { return ops.size(); };
 
@@ -28,9 +33,15 @@ public:
 
   TransactionOperation &GetOperation(unsigned long i) { return ops[i]; }
 
-private:
+  void SetAborted(bool aborted) { is_aborted = aborted; };
+
+  bool IsAborted() { return is_aborted; };
+
+protected:
   std::vector<TransactionOperation> ops;
   unsigned long next_op;
+
+  bool is_aborted;
 };
 
 } // namespace ycsbc

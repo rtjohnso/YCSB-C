@@ -85,10 +85,21 @@ void TransactionRocksDB::Begin(Transaction **txn) {
     *txn = new RocksDBTransaction();
   }
   ((RocksDBTransaction *)*txn)->handle = db->BeginTransaction(woptions);
+  ((RocksDBTransaction *)*txn)->handle->SetSnapshot();
+  ((RocksDBTransaction *)*txn)->handle->SetSavePoint();
 }
 
 int TransactionRocksDB::Commit(Transaction **txn) {
   rocksdb::Transaction *txn_handle = ((RocksDBTransaction *)*txn)->handle;
+
+  if ((*txn)->IsAborted()) {
+    txn_handle->RollbackToSavePoint();
+    rocksdb::Status s = txn_handle->Commit();
+    assert(s.ok());
+    delete txn_handle;
+    return DB::kErrorConflict;
+  }
+
   rocksdb::Status s = txn_handle->Commit();
   delete txn_handle;
 
@@ -115,8 +126,16 @@ int TransactionRocksDB::Read(Transaction *txn, const std::string &table,
   string value;
 
   rocksdb::Transaction *txn_handle = ((RocksDBTransaction *)txn)->handle;
+  txn_handle->SetSnapshot();
+  rocksdb::ReadOptions roptions_ = roptions;
+  roptions_.snapshot = txn_handle->GetSnapshot();
   rocksdb::Status status =
-      txn_handle->GetForUpdate(roptions, rocksdb::Slice(key), &value);
+      txn_handle->GetForUpdate(roptions_, rocksdb::Slice(key), &value);
+
+  if (status.IsTimedOut() || status.IsBusy()) {
+    return DB::kErrorConflict;
+  }
+
   assert(status.ok() || status.IsNotFound()); // TODO is it expected we're
                                               // querying non-existing keys?
   return DB::kOK;
@@ -151,6 +170,11 @@ int TransactionRocksDB::Insert(Transaction *txn, const std::string &table,
   rocksdb::Transaction *txn_handle = ((RocksDBTransaction *)txn)->handle;
   rocksdb::Status status =
       txn_handle->Put(rocksdb::Slice(key), rocksdb::Slice(values[0].second));
+
+  if (status.IsTimedOut() || status.IsBusy()) {
+    return DB::kErrorConflict;
+  }
+
   assert(status.ok());
   return DB::kOK;
 }
@@ -160,6 +184,11 @@ int TransactionRocksDB::Delete(Transaction *txn, const std::string &table,
   assert(txn != NULL);
   rocksdb::Transaction *txn_handle = ((RocksDBTransaction *)txn)->handle;
   rocksdb::Status status = txn_handle->Delete(rocksdb::Slice(key));
+
+  if (status.IsTimedOut() || status.IsBusy()) {
+    return DB::kErrorConflict;
+  }
+
   assert(status.ok());
   return DB::kOK;
 }

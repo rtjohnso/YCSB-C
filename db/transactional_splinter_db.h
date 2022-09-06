@@ -73,6 +73,11 @@ private:
 };
 
 class SplinterDBTransaction : public Transaction {
+public:
+  SplinterDBTransaction() : Transaction(){};
+
+  ~SplinterDBTransaction(){};
+
 private:
   transaction handle;
 

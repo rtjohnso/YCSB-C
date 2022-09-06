@@ -76,7 +76,9 @@ void OptimisticTransactionRocksDB::Init() {}
 void OptimisticTransactionRocksDB::Close() {}
 
 void OptimisticTransactionRocksDB::Begin(Transaction **txn) {
-  *txn = new RocksDBTransaction();
+  if (*txn == NULL) {
+    *txn = new RocksDBTransaction();
+  }
 
   rocksdb::Transaction *rt = db->BeginTransaction(woptions);
   ((RocksDBTransaction *)*txn)->handle = rt;
@@ -112,6 +114,7 @@ int OptimisticTransactionRocksDB::Read(Transaction *txn,
   string value;
 
   rocksdb::Transaction *txn_handle = ((RocksDBTransaction *)txn)->handle;
+  txn_handle->SetSnapshot();
   rocksdb::ReadOptions roptions_ = roptions;
   roptions_.snapshot = txn_handle->GetSnapshot();
   rocksdb::Status status =

@@ -148,6 +148,9 @@ private:
 };
 
 class RocksDBTransaction : public Transaction {
+public:
+  RocksDBTransaction() : Transaction(){};
+
 private:
   rocksdb::Transaction *handle;
 
