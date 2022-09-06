@@ -128,7 +128,7 @@ int TransactionRocksDB::Read(Transaction *txn, const std::string &table,
   rocksdb::Transaction *txn_handle = ((RocksDBTransaction *)txn)->handle;
   txn_handle->SetSnapshot();
   rocksdb::ReadOptions roptions_ = roptions;
-  roptions_.snapshot = txn_handle->GetSnapshot();
+  roptions_.snapshot = db->GetSnapshot();
   rocksdb::Status status =
       txn_handle->GetForUpdate(roptions_, rocksdb::Slice(key), &value);
 

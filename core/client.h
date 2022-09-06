@@ -13,8 +13,8 @@
 #include "db.h"
 #include "transaction.h"
 #include "utils.h"
-#include <string>
 #include <atomic>
+#include <string>
 
 namespace ycsbc {
 
@@ -30,12 +30,10 @@ public:
   virtual bool DoInsert();
   virtual bool DoTransaction();
 
-  virtual ~Client() {
-    Client::total_abort_cnt += abort_cnt;
-  }
+  virtual ~Client() { Client::total_abort_cnt += abort_cnt; }
 
-  
   static std::atomic<unsigned long> total_abort_cnt;
+
 protected:
   virtual int TransactionRead(Transaction *txn);
   virtual int TransactionReadModifyWrite(Transaction *txn);
@@ -77,9 +75,9 @@ inline bool Client::DoTransaction() {
 
   db_.Begin(&txn);
 
-  assert(!txn->IsAborted());
-
-  txn->ReadyToRecordOperations(workload_.ops_per_transaction());
+  if (txn != NULL) {
+    txn->ReadyToRecordOperations(workload_.ops_per_transaction());
+  }
   for (int i = 0; i < workload_.ops_per_transaction(); ++i) {
     switch (workload_.NextOperation()) {
     case READ:
@@ -111,7 +109,7 @@ inline bool Client::DoTransaction() {
 
   while (need_retry) {
     ++abort_cnt;
-    
+
     db_.Begin(&txn);
 
     txn->SetAborted(false);
@@ -152,110 +150,188 @@ inline bool Client::DoTransaction() {
 }
 
 inline int Client::TransactionRead(Transaction *txn) {
-  TransactionOperation &top = txn->GetNextOperation();
-  top.op = READ;
-  top.table = workload_.NextTable();
-  top.key = workload_.NextTransactionKey();
+  if (txn != NULL) {
+    TransactionOperation &top = txn->GetNextOperation();
+    top.op = READ;
+    top.table = workload_.NextTable();
+    top.key = workload_.NextTransactionKey();
 
-  if (txn->IsAborted()) {
-    return DB::kErrorConflict;
+    if (txn->IsAborted()) {
+      return DB::kErrorConflict;
+    }
+
+    std::vector<DB::KVPair> result;
+    if (!workload_.read_all_fields()) {
+      std::vector<std::string> fields;
+      fields.push_back("field" + workload_.NextFieldName());
+      return db_.Read(txn, top.table, top.key, &fields, result);
+    } else {
+      return db_.Read(txn, top.table, top.key, NULL, result);
+    }
   }
+
+  const std::string &table = workload_.NextTable();
+  const std::string &key = workload_.NextTransactionKey();
 
   std::vector<DB::KVPair> result;
   if (!workload_.read_all_fields()) {
     std::vector<std::string> fields;
     fields.push_back("field" + workload_.NextFieldName());
-    return db_.Read(txn, top.table, top.key, &fields, result);
+    return db_.Read(txn, table, key, &fields, result);
   } else {
-    return db_.Read(txn, top.table, top.key, NULL, result);
+    return db_.Read(txn, table, key, NULL, result);
   }
 }
 
 inline int Client::TransactionReadModifyWrite(Transaction *txn) {
-  TransactionOperation &top = txn->GetNextOperation();
-  top.op = READMODIFYWRITE;
-  top.table = workload_.NextTable();
-  top.key = workload_.NextTransactionKey();
+  if (txn != NULL) {
+    TransactionOperation &top = txn->GetNextOperation();
+    top.op = READMODIFYWRITE;
+    top.table = workload_.NextTable();
+    top.key = workload_.NextTransactionKey();
 
-  if (workload_.write_all_fields()) {
-    workload_.BuildValues(top.values);
-  } else {
-    workload_.BuildUpdate(top.values);
+    if (workload_.write_all_fields()) {
+      workload_.BuildValues(top.values);
+    } else {
+      workload_.BuildUpdate(top.values);
+    }
+
+    if (txn->IsAborted()) {
+      return DB::kErrorConflict;
+    }
+
+    std::vector<DB::KVPair> result;
+
+    if (!workload_.read_all_fields()) {
+      std::vector<std::string> fields;
+      fields.push_back("field" + workload_.NextFieldName());
+      db_.Read(txn, top.table, top.key, &fields, result);
+    } else {
+      db_.Read(txn, top.table, top.key, NULL, result);
+    }
+
+    return db_.Update(txn, top.table, top.key, top.values);
   }
 
-  if (txn->IsAborted()) {
-    return DB::kErrorConflict;
-  }
+  const std::string &table = workload_.NextTable();
+  const std::string &key = workload_.NextTransactionKey();
 
   std::vector<DB::KVPair> result;
 
   if (!workload_.read_all_fields()) {
     std::vector<std::string> fields;
     fields.push_back("field" + workload_.NextFieldName());
-    db_.Read(txn, top.table, top.key, &fields, result);
+    db_.Read(txn, table, key, &fields, result);
   } else {
-    db_.Read(txn, top.table, top.key, NULL, result);
+    db_.Read(txn, table, key, NULL, result);
   }
 
-  return db_.Update(txn, top.table, top.key, top.values);
+  std::vector<DB::KVPair> values;
+  if (workload_.write_all_fields()) {
+    workload_.BuildValues(values);
+  } else {
+    workload_.BuildUpdate(values);
+  }
+
+  return db_.Update(txn, table, key, values);
 }
 
 inline int Client::TransactionScan(Transaction *txn) {
-  TransactionOperation &top = txn->GetNextOperation();
-  top.op = SCAN;
-  top.table = workload_.NextTable();
-  top.key = workload_.NextTransactionKey();
-  top.len = workload_.NextScanLength();
+  if (txn != NULL) {
+    TransactionOperation &top = txn->GetNextOperation();
+    top.op = SCAN;
+    top.table = workload_.NextTable();
+    top.key = workload_.NextTransactionKey();
+    top.len = workload_.NextScanLength();
 
-  if (txn->IsAborted()) {
-    return DB::kErrorConflict;
+    if (txn->IsAborted()) {
+      return DB::kErrorConflict;
+    }
+
+    std::vector<std::vector<DB::KVPair>> result;
+    if (!workload_.read_all_fields()) {
+      std::vector<std::string> fields;
+      fields.push_back("field" + workload_.NextFieldName());
+      return db_.Scan(txn, top.table, top.key, top.len, &fields, result);
+    } else {
+      return db_.Scan(txn, top.table, top.key, top.len, NULL, result);
+    }
   }
+
+  const std::string &table = workload_.NextTable();
+  const std::string &key = workload_.NextTransactionKey();
+  uint64_t len = workload_.NextScanLength();
 
   std::vector<std::vector<DB::KVPair>> result;
   if (!workload_.read_all_fields()) {
     std::vector<std::string> fields;
     fields.push_back("field" + workload_.NextFieldName());
-    return db_.Scan(txn, top.table, top.key, top.len, &fields, result);
+    return db_.Scan(txn, table, key, len, &fields, result);
   } else {
-    return db_.Scan(txn, top.table, top.key, top.len, NULL, result);
+    return db_.Scan(txn, table, key, len, NULL, result);
   }
 }
 
 inline int Client::TransactionUpdate(Transaction *txn) {
-  TransactionOperation &top = txn->GetNextOperation();
-  top.op = UPDATE;
-  top.table = workload_.NextTable();
-  top.key = workload_.NextTransactionKey();
+  if (txn != NULL) {
+    TransactionOperation &top = txn->GetNextOperation();
+    top.op = UPDATE;
+    top.table = workload_.NextTable();
+    top.key = workload_.NextTransactionKey();
+    if (workload_.write_all_fields()) {
+      workload_.BuildValues(top.values);
+    } else {
+      workload_.BuildUpdate(top.values);
+    }
+
+    if (txn->IsAborted()) {
+      return DB::kErrorConflict;
+    }
+
+    return db_.Update(txn, top.table, top.key, top.values);
+  }
+
+  const std::string &table = workload_.NextTable();
+  const std::string &key = workload_.NextTransactionKey();
+
+  std::vector<DB::KVPair> values;
   if (workload_.write_all_fields()) {
-    workload_.BuildValues(top.values);
+    workload_.BuildValues(values);
   } else {
-    workload_.BuildUpdate(top.values);
+    workload_.BuildUpdate(values);
   }
 
-  if (txn->IsAborted()) {
-    return DB::kErrorConflict;
-  }
-
-  return db_.Update(txn, top.table, top.key, top.values);
+  return db_.Update(txn, table, key, values);
 }
 
 inline int Client::TransactionInsert(Transaction *txn) {
-  TransactionOperation &top = txn->GetNextOperation();
-  top.op = INSERT;
-  top.table = workload_.NextTable();
-  workload_.NextSequenceKey(key);
-  top.key = key;
-  workload_.BuildValues(top.values);
+  if (txn != NULL) {
+    TransactionOperation &top = txn->GetNextOperation();
+    top.op = INSERT;
+    top.table = workload_.NextTable();
+    workload_.NextSequenceKey(key);
+    top.key = key;
+    workload_.BuildValues(top.values);
 
-  if (txn->IsAborted()) {
-    return DB::kErrorConflict;
+    if (txn->IsAborted()) {
+      return DB::kErrorConflict;
+    }
+
+    return db_.Insert(txn, top.table, top.key, top.values);
   }
 
-  return db_.Insert(txn, top.table, top.key, top.values);
+  const std::string &table = workload_.NextTable();
+  workload_.NextSequenceKey(key);
+  std::vector<DB::KVPair> values;
+  workload_.BuildValues(values);
+
+  return db_.Insert(txn, table, key, values);
 }
 
 inline int Client::TransactionReadRetry(Transaction *txn,
                                         TransactionOperation &top) {
+  assert(txn != NULL);
+
   if (txn->IsAborted()) {
     return DB::kErrorConflict;
   }
@@ -272,9 +348,12 @@ inline int Client::TransactionReadRetry(Transaction *txn,
 
 inline int Client::TransactionReadModifyWriteRetry(Transaction *txn,
                                                    TransactionOperation &top) {
+  assert(txn != NULL);
+
   if (txn->IsAborted()) {
     return DB::kErrorConflict;
   }
+
   std::vector<DB::KVPair> result;
 
   if (!workload_.read_all_fields()) {
@@ -290,9 +369,12 @@ inline int Client::TransactionReadModifyWriteRetry(Transaction *txn,
 
 inline int Client::TransactionScanRetry(Transaction *txn,
                                         TransactionOperation &top) {
+  assert(txn != NULL);
+
   if (txn->IsAborted()) {
     return DB::kErrorConflict;
   }
+
   std::vector<std::vector<DB::KVPair>> result;
   if (!workload_.read_all_fields()) {
     std::vector<std::string> fields;
@@ -305,17 +387,23 @@ inline int Client::TransactionScanRetry(Transaction *txn,
 
 inline int Client::TransactionUpdateRetry(Transaction *txn,
                                           TransactionOperation &top) {
+  assert(txn != NULL);
+
   if (txn->IsAborted()) {
     return DB::kErrorConflict;
   }
+
   return db_.Update(txn, top.table, top.key, top.values);
 }
 
 inline int Client::TransactionInsertRetry(Transaction *txn,
                                           TransactionOperation &top) {
+  assert(txn != NULL);
+
   if (txn->IsAborted()) {
     return DB::kErrorConflict;
   }
+
   return db_.Insert(txn, top.table, top.key, top.values);
 }
 
