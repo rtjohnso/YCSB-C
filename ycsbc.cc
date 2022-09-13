@@ -64,7 +64,11 @@ std::map<string, string> default_props = {
     {"splinterdb.isolation_level", "1"},
 
     {"rocksdb.database_filename", "rocksdb.db"},
+<<<<<<< HEAD
 //    {"rocksdb.isolation_level", "3"},
+=======
+    {"rocksdb.isolation_level", "3"},
+>>>>>>> 41abab0 (Implemented various isolation levels)
 };
 
 void UsageMessage(const char *command);
