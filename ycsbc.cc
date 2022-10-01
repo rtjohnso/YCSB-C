@@ -67,7 +67,7 @@ std::map<string, string> default_props = {
 <<<<<<< HEAD
 //    {"rocksdb.isolation_level", "3"},
 =======
-    {"rocksdb.isolation_level", "3"},
+//    {"rocksdb.isolation_level", "3"},
 >>>>>>> 41abab0 (Implemented various isolation levels)
 };
 
