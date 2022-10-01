@@ -23,4 +23,4 @@ while true ; do
 done
 
 ./ycsbc -db transactional_splinterdb -threads $NTHREADS $PARAMS
-
+rm -f splinterdb.db
