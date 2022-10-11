@@ -20,6 +20,13 @@ using std::endl;
 
 namespace ycsbc {
 
+typedef enum {
+  ROCKSDB_ISOLATION_LEVEL_INVALID = 0,
+  ROCKSDB_ISOLATION_LEVEL_READ_COMMITTED,
+  ROCKSDB_ISOLATION_LEVEL_SNAPSHOT_ISOLATION,
+  ROCKSDB_ISOLATION_LEVEL_MONOTONIC_ATOMIC_VIEW,
+} RocksDBIsolationLevel;
+
 class TransactionRocksDB : public DB {
 public:
   TransactionRocksDB(utils::Properties &props, bool preloaded);
@@ -82,6 +89,7 @@ private:
   rocksdb::ReadOptions roptions;
   rocksdb::WriteOptions woptions;
   rocksdb::TransactionDBOptions txndb_options;
+  RocksDBIsolationLevel isol_level;
 };
 
 class OptimisticTransactionRocksDB : public DB {
@@ -145,6 +153,7 @@ private:
   rocksdb::Options options;
   rocksdb::ReadOptions roptions;
   rocksdb::WriteOptions woptions;
+  RocksDBIsolationLevel isol_level;
 };
 
 class RocksDBTransaction : public Transaction {

@@ -46,6 +46,9 @@ void OptimisticTransactionRocksDB::InitializeOptions(utils::Properties &props) {
       // ignore it here -- loaded above
     } else if (tuple.first == "rocksdb.database_filename") {
       // ignore it, used in constructor
+    } else if (tuple.first == "rocksdb.isolation_level") {
+      isol_level = (RocksDBIsolationLevel)props.GetIntProperty(
+          "rocksdb.isolation_level");
     } else if (tuple.first.find("rocksdb.") == 0) {
       std::cout << "Unknown rocksdb config option " << tuple.first << std::endl;
       assert(0);
@@ -67,6 +70,7 @@ OptimisticTransactionRocksDB::OptimisticTransactionRocksDB(
   rocksdb::Status status =
       rocksdb::OptimisticTransactionDB::Open(options, database_filename, &db);
   assert(status.ok());
+  assert(isol_level != ROCKSDB_ISOLATION_LEVEL_INVALID);
 }
 
 OptimisticTransactionRocksDB::~OptimisticTransactionRocksDB() { delete db; }
@@ -82,7 +86,11 @@ void OptimisticTransactionRocksDB::Begin(Transaction **txn) {
 
   rocksdb::Transaction *rt = db->BeginTransaction(woptions);
   ((RocksDBTransaction *)*txn)->handle = rt;
-  rt->SetSnapshot();
+
+  if (isol_level == ROCKSDB_ISOLATION_LEVEL_SNAPSHOT_ISOLATION ||
+      isol_level == ROCKSDB_ISOLATION_LEVEL_MONOTONIC_ATOMIC_VIEW) {
+    rt->SetSnapshot();
+  }
 }
 
 int OptimisticTransactionRocksDB::Commit(Transaction **txn) {
@@ -114,9 +122,16 @@ int OptimisticTransactionRocksDB::Read(Transaction *txn,
   string value;
 
   rocksdb::Transaction *txn_handle = ((RocksDBTransaction *)txn)->handle;
-  txn_handle->SetSnapshot();
+
+  if (isol_level == ROCKSDB_ISOLATION_LEVEL_MONOTONIC_ATOMIC_VIEW) {
+    txn_handle->SetSnapshot();
+  }
   rocksdb::ReadOptions roptions_ = roptions;
-  roptions_.snapshot = db->GetSnapshot();
+
+  if (isol_level == ROCKSDB_ISOLATION_LEVEL_SNAPSHOT_ISOLATION ||
+      isol_level == ROCKSDB_ISOLATION_LEVEL_MONOTONIC_ATOMIC_VIEW) {
+    roptions_.snapshot = db->GetSnapshot();
+  }
   rocksdb::Status status =
       txn_handle->GetForUpdate(roptions_, rocksdb::Slice(key), &value);
   assert(status.ok() || status.IsNotFound()); // TODO is it expected we're

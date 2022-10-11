@@ -51,6 +51,9 @@ void TransactionRocksDB::InitializeOptions(utils::Properties &props) {
       long transaction_lock_timeout = props.GetIntProperty(
           "rocksdb.txndb_options.transaction_lock_timeout");
       txndb_options.transaction_lock_timeout = transaction_lock_timeout;
+    } else if (tuple.first == "rocksdb.isolation_level") {
+      isol_level = (RocksDBIsolationLevel)props.GetIntProperty(
+          "rocksdb.isolation_level");
     } else if (tuple.first.find("rocksdb.") == 0) {
       std::cout << "Unknown rocksdb config option " << tuple.first << std::endl;
       assert(0);
@@ -72,6 +75,7 @@ TransactionRocksDB::TransactionRocksDB(utils::Properties &props,
   rocksdb::Status status = rocksdb::TransactionDB::Open(options, txndb_options,
                                                         database_filename, &db);
   assert(status.ok());
+  assert(isol_level != ROCKSDB_ISOLATION_LEVEL_INVALID);
 }
 
 TransactionRocksDB::~TransactionRocksDB() { delete db; }
@@ -85,15 +89,22 @@ void TransactionRocksDB::Begin(Transaction **txn) {
     *txn = new RocksDBTransaction();
   }
   ((RocksDBTransaction *)*txn)->handle = db->BeginTransaction(woptions);
-  ((RocksDBTransaction *)*txn)->handle->SetSnapshot();
-  ((RocksDBTransaction *)*txn)->handle->SetSavePoint();
+
+  if (isol_level == ROCKSDB_ISOLATION_LEVEL_SNAPSHOT_ISOLATION ||
+      isol_level == ROCKSDB_ISOLATION_LEVEL_MONOTONIC_ATOMIC_VIEW) {
+    ((RocksDBTransaction *)*txn)->handle->SetSnapshot();
+    ((RocksDBTransaction *)*txn)->handle->SetSavePoint();
+  }
 }
 
 int TransactionRocksDB::Commit(Transaction **txn) {
   rocksdb::Transaction *txn_handle = ((RocksDBTransaction *)*txn)->handle;
 
   if ((*txn)->IsAborted()) {
-    txn_handle->RollbackToSavePoint();
+    if (isol_level == ROCKSDB_ISOLATION_LEVEL_SNAPSHOT_ISOLATION ||
+        isol_level == ROCKSDB_ISOLATION_LEVEL_MONOTONIC_ATOMIC_VIEW) {
+      txn_handle->RollbackToSavePoint();
+    }
     rocksdb::Status s = txn_handle->Commit();
     assert(s.ok());
     delete txn_handle;
@@ -111,6 +122,11 @@ int TransactionRocksDB::Commit(Transaction **txn) {
   }
 
   if (s.IsBusy()) {
+    if (isol_level == ROCKSDB_ISOLATION_LEVEL_SNAPSHOT_ISOLATION ||
+        isol_level == ROCKSDB_ISOLATION_LEVEL_MONOTONIC_ATOMIC_VIEW) {
+      txn_handle->Rollback();
+    }
+
     return DB::kErrorConflict;
   }
 
@@ -126,9 +142,16 @@ int TransactionRocksDB::Read(Transaction *txn, const std::string &table,
   string value;
 
   rocksdb::Transaction *txn_handle = ((RocksDBTransaction *)txn)->handle;
-  txn_handle->SetSnapshot();
+
+  if (isol_level == ROCKSDB_ISOLATION_LEVEL_MONOTONIC_ATOMIC_VIEW) {
+    txn_handle->SetSnapshot();
+  }
   rocksdb::ReadOptions roptions_ = roptions;
-  roptions_.snapshot = db->GetSnapshot();
+
+  if (isol_level == ROCKSDB_ISOLATION_LEVEL_SNAPSHOT_ISOLATION ||
+      isol_level == ROCKSDB_ISOLATION_LEVEL_MONOTONIC_ATOMIC_VIEW) {
+    roptions_.snapshot = db->GetSnapshot();
+  }
   rocksdb::Status status =
       txn_handle->GetForUpdate(roptions_, rocksdb::Slice(key), &value);
 

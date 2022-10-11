@@ -65,6 +65,10 @@ TransactionalSplinterDB::TransactionalSplinterDB(utils::Properties &props,
   } else {
     assert(!transactional_splinterdb_create(&splinterdb_cfg, &spl));
   }
+
+  transactional_splinterdb_set_isolation_level(
+      spl, (transaction_isolation_level)props.GetIntProperty(
+               "splinterdb.isolation_level"));
 }
 
 TransactionalSplinterDB::~TransactionalSplinterDB() {
