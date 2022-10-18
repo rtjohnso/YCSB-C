@@ -1,7 +1,7 @@
 #!/bin/bash
 
-DB=transactional_splinterdb
-THREADS=$1
+DB=${1:-"transactional_splinterdb"}
+THREADS=${2:-1}
 FIELDLENGTH=1024
 
 RECORDCOUNT=84000000
