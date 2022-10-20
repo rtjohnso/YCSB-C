@@ -76,6 +76,9 @@ const string CoreWorkload::INSERT_START_DEFAULT = "0";
 const string CoreWorkload::RECORD_COUNT_PROPERTY = "recordcount";
 const string CoreWorkload::OPERATION_COUNT_PROPERTY = "operationcount";
 
+const string CoreWorkload::OPS_PER_TRANSACTION_PROPERTY = "opspertransaction";
+const string CoreWorkload::OPS_PER_TRANSACTION_DEFAULT = "1";
+
 void CoreWorkload::InitLoadWorkload(const utils::Properties &p, unsigned int nthreads, unsigned int this_thread, BatchedCounterGenerator *key_generator) {
   table_name_ = p.GetProperty(TABLENAME_PROPERTY,TABLENAME_DEFAULT);
   
@@ -178,6 +181,8 @@ void CoreWorkload::InitRunWorkload(const utils::Properties &p, unsigned int nthr
   }
 
   //batch_size_ = 1;
+  
+  ops_per_transaction_ = std::stoi(p.GetProperty(OPS_PER_TRANSACTION_PROPERTY, OPS_PER_TRANSACTION_DEFAULT));
 }
 
 ycsbc::Generator<uint64_t> *CoreWorkload::GetFieldLenGenerator(
