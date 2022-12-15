@@ -146,23 +146,20 @@ int ClassicSplinterDB::Scan(const string &table,
                      const string &key, int len,
                      const vector<string> *fields,
                      vector<vector<KVPair>> &result) {
-  assert(FALSE);
-  // assert(fields == NULL);
+  assert(fields == NULL);
 
-  // slice key_slice = slice_create(key.size(), key.c_str());
-
-  // splinterdb_iterator *itor;
-  // assert(!splinterdb_iterator_init(spl, &itor, key_slice));
-  // for (int i = 0; i < len; i++) {
-  //   if (!splinterdb_iterator_valid(itor)) {
-  //     break;
-  //   }
-  //   slice key, val;
-  //   splinterdb_iterator_get_current(itor, &key, &val);
-  //   splinterdb_iterator_next(itor);
-  // }
-  // assert(!splinterdb_iterator_status(itor));
-  // splinterdb_iterator_deinit(itor);
+  kvstore_iterator *itor;
+  assert(!kvstore_iterator_init(spl, &itor, key.c_str()));
+  for (int i = 0; i < len; i++) {
+    if (!kvstore_iterator_valid(itor)) {
+      break;
+    }
+    const char *key, *val;
+    kvstore_iterator_get_current(itor, &key, &val);
+    kvstore_iterator_next(itor);
+  }
+  assert(!kvstore_iterator_status(itor));
+  kvstore_iterator_deinit(itor);
 
   return DB::kOK;
 }
