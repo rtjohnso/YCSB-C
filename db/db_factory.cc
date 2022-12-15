@@ -14,7 +14,7 @@
 #include "db/redis_db.h"
 #include "db/tbb_rand_db.h"
 #include "db/tbb_scan_db.h"
-#include "db/splinter_db.h"
+#include "db/classic_splinterdb.h"
 #include "db/rocks_db.h"
 
 using namespace std;
@@ -33,8 +33,8 @@ DB* DBFactory::CreateDB(utils::Properties &props, bool preloaded) {
     return new RedisDB(props["host"].c_str(), port, slaves);
   } else if (props["dbname"] == "rocksdb") {
     return new RocksDB(props, preloaded);
-  } else if (props["dbname"] == "splinterdb") {
-    return new SplinterDB(props, preloaded);
+  } else if (props["dbname"] == "classic_splinterdb") {
+    return new ClassicSplinterDB(props, preloaded);
   } else if (props["dbname"] == "tbb_rand") {
     assert(!preloaded);
     return new TbbRandDB;

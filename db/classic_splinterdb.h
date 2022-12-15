@@ -3,8 +3,8 @@
 //  YCSB-C
 //
 
-#ifndef YCSB_C_SPLINTER_DB_H_
-#define YCSB_C_SPLINTER_DB_H_
+#ifndef YCSB_C_CLASSIC_SPLINTER_DB_H_
+#define YCSB_C_CLASSIC_SPLINTER_DB_H_
 
 #include "core/db.h"
 
@@ -13,7 +13,7 @@
 #include "core/properties.h"
 
 extern "C" {
-#include "splinterdb/splinterdb.h"
+#include "splinterdb/kvstore.h"
 }
 
 using std::cout;
@@ -21,10 +21,10 @@ using std::endl;
 
 namespace ycsbc {
 
-class SplinterDB : public DB {
+class ClassicSplinterDB : public DB {
 public:
-  SplinterDB(utils::Properties &props, bool preloaded);
-  ~SplinterDB();
+  ClassicSplinterDB(utils::Properties &props, bool preloaded);
+  ~ClassicSplinterDB();
 
   void Init();
   void Close();
@@ -46,12 +46,11 @@ public:
   int Delete(const std::string &table, const std::string &key);
 
 private:
-  splinter_config           splinter_cfg;
-  data_config               data_cfg;
-  splinter_handle          *spl;
+  data_config    data_cfg;
+  kvstore_config splinter_cfg;
+  kvstore       *spl;
 };
 
 } // ycsbc
 
-#endif // YCSB_C_SPLINTER_DB_H_
-
+#endif // YCSB_C_CLASSIC_SPLINTER_DB_H_

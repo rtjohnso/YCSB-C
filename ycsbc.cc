@@ -43,6 +43,7 @@ std::map<string, string> default_props = {
   {"splinterdb.disk_size_gb", "128"},
 
   {"splinterdb.max_key_size", "24"},
+  {"splinterdb.max_value_size", "100"},
   {"splinterdb.use_log", "1"},
 
   // All these options use splinterdb's internal defaults
