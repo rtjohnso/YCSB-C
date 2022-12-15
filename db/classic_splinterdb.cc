@@ -134,6 +134,7 @@ int ClassicSplinterDB::Read(const string &table,
   char lookup_result[MAX_MESSAGE_SIZE];
   bool found;
 
+  assert(key.size() == data_cfg.key_size);
   assert(!kvstore_lookup(spl, key.c_str(), lookup_result, &found));
   if (!found) {
     cout << "FAILED lookup " << key << endl;
@@ -147,6 +148,7 @@ int ClassicSplinterDB::Scan(const string &table,
                      const vector<string> *fields,
                      vector<vector<KVPair>> &result) {
   assert(fields == NULL);
+  assert(key.size() == data_cfg.key_size);
 
   kvstore_iterator *itor;
   assert(!kvstore_iterator_init(spl, &itor, key.c_str()));
@@ -172,8 +174,10 @@ int ClassicSplinterDB::Update(const string &table,
 
 int ClassicSplinterDB::Insert(const string &table, const string &key, vector<KVPair> &values) {
   assert(values.size() == 1);
+  assert(key.size() == data_cfg.key_size);
 
   std::string val = values[0].second;
+  assert(val.size() == 0 || val.size() == data_cfg.message_size);
   assert(!kvstore_insert(spl, key.c_str(), val.c_str()));
 
   return DB::kOK;
