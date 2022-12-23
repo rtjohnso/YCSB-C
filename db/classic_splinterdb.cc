@@ -86,8 +86,17 @@ ClassicSplinterDB::ClassicSplinterDB(utils::Properties &props, bool preloaded) {
   data_cfg.message_size = props.GetIntProperty("splinterdb.max_value_size");
 
   splinter_cfg.filename                 = props.GetProperty("splinterdb.filename").c_str();
-  splinter_cfg.cache_size               = props.GetIntProperty("splinterdb.cache_size_mb") * 1024 *1024;
   splinter_cfg.disk_size                = props.GetIntProperty("splinterdb.disk_size_gb") * 1024 * 1024 * 1024;
+
+  if (props.HasProperty("splinterdb.pmem_cache_file")) {
+      splinter_cfg.pmem_cache_file = props.GetProperty("splinterdb.pmem_cache_file").c_str();
+  } else {
+    splinter_cfg.pmem_cache_file = NULL;
+  }
+  splinter_cfg.pmem_cache_size = props.GetIntProperty("splinterdb.pmem_cache_size_mb") * 1024 *1024;
+  splinter_cfg.dram_cache_size = props.GetIntProperty("splinterdb.dram_cache_size_mb") * 1024 *1024;
+  splinter_cfg.cache_log_checkpoint_interval = props.GetIntProperty("splinterdb.cache_log_checkpoint_interval");
+
   splinter_cfg.data_cfg                 = data_cfg;
   splinter_cfg.heap_handle              = NULL;
   splinter_cfg.heap_id                  = NULL;
