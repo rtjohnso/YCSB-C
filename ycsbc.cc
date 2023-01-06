@@ -42,7 +42,7 @@ std::map<string, string> default_props = {
   {"splinterdb.disk_size_gb", "128"},
 
   {"splinterdb.pmem_cache_size_mb", "0"},
-  {"splinterdb.dram_cache_size_mb", "4096"},
+  {"splinterdb.dram_cache_size_mb", "1024"},
   {"splinterdb.cache_log_checkpoint_interval", "10000"},
 
   {"splinterdb.max_key_size", "24"},
@@ -288,6 +288,38 @@ void ParseCommandLine(int argc, const char *argv[],
         exit(0);
       }
       props.SetProperty("dbname", argv[argindex]);
+      argindex++;
+    } else if (strcmp(argv[argindex], "-pmem_cache_file") == 0) {
+      argindex++;
+      if (argindex >= argc) {
+        UsageMessage(argv[0]);
+        exit(0);
+      }
+      props.SetProperty("splinterdb.pmem_cache_file", argv[argindex]);
+      argindex++;
+    } else if (strcmp(argv[argindex], "-cache_log_checkpoint_interval") == 0) {
+      argindex++;
+      if (argindex >= argc) {
+        UsageMessage(argv[0]);
+        exit(0);
+      }
+      props.SetProperty("splinterdb.cache_log_checkpoint_interval", argv[argindex]);
+      argindex++;
+    } else if (strcmp(argv[argindex], "-dram_cache_size_mb") == 0) {
+      argindex++;
+      if (argindex >= argc) {
+        UsageMessage(argv[0]);
+        exit(0);
+      }
+      props.SetProperty("splinterdb.dram_cache_size_mb", argv[argindex]);
+      argindex++;
+    } else if (strcmp(argv[argindex], "-pmem_cache_size_mb") == 0) {
+      argindex++;
+      if (argindex >= argc) {
+        UsageMessage(argv[0]);
+        exit(0);
+      }
+      props.SetProperty("splinterdb.pmem_cache_size_mb", argv[argindex]);
       argindex++;
     } else if (strcmp(argv[argindex], "-progress") == 0) {
       argindex++;
