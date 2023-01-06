@@ -43,7 +43,7 @@ std::map<string, string> default_props = {
 
   {"splinterdb.pmem_cache_size_mb", "0"},
   {"splinterdb.dram_cache_size_mb", "1024"},
-  {"splinterdb.cache_log_checkpoint_interval", "10000"},
+  {"splinterdb.cache_log_checkpoint_interval", "0"},
 
   {"splinterdb.max_key_size", "24"},
   {"splinterdb.max_value_size", "100"},
