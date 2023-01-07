@@ -66,7 +66,21 @@ std::map<string, string> default_props = {
   {"splinterdb.use_stats", "0"},
   {"splinterdb.reclaim_threshold", "0"},
 
+  //
+  // Rocksdb options
+  //
   {"rocksdb.database_filename", "rocksdb.db"},
+
+  //
+  // Matrixkv options
+  //
+  {"matrixkv.use_nvm_module", "0"},
+  {"matrixkv.pmem_path", ""},
+  // The following options will use MatrixKV's internal defaults if
+  // left unspecified.
+  //{"matrixkv.level0_column_compaction_trigger_size", ""},
+  //{"matrixkv.level0_column_compaction_slowdown_size", ""},
+  //{"matrixkv.level0_column_compaction_stop_size", ""},
 };
 
 

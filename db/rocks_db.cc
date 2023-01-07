@@ -20,11 +20,11 @@ namespace ycsbc {
 void RocksDB::InitializeOptions(utils::Properties &props)
 {
   const std::map<std::string, std::string> &m = (const std::map<std::string, std::string> &)props;
-  rocksdb::ConfigOptions copts;
+
+  std::vector<rocksdb::ColumnFamilyDescriptor> cf_descs;
 
   if (m.count("rocksdb.config_file")) {
-    std::vector<rocksdb::ColumnFamilyDescriptor> cf_descs;
-    assert(LoadOptionsFromFile(copts, m.at("rocksdb.config_file"), &options, &cf_descs) == rocksdb::Status::OK());
+    assert(LoadOptionsFromFile(m.at("rocksdb.config_file"), rocksdb::Env::Default(), &options, &cf_descs) == rocksdb::Status::OK());
   }
 
   std::unordered_map<std::string, std::string> options_map;
@@ -48,12 +48,30 @@ void RocksDB::InitializeOptions(utils::Properties &props)
       assert(0);
     }
   }
-  rocksdb::Options new_options;
-  assert(GetDBOptionsFromMap(copts, options, options_map, &new_options) == rocksdb::Status::OK());
-  options = new_options;
+  assert(GetDBOptionsFromMap(options, options_map, &options, false, false) == rocksdb::Status::OK());
+
+  // Matrixkv options
+  if (props.GetIntProperty("matrixkv.use_nvm_module")) {
+    auto nvm_setup = new rocksdb::NvmSetup();
+    nvm_setup->use_nvm_module = true;
+    assert(props.HasProperty("matrixkv.pmem_path"));
+    nvm_setup->pmem_path = props.GetProperty("matrixkv.pmem_path");
+
+    if (props.HasProperty("matrixkv.level0_column_compaction_trigger_size"))
+      nvm_setup->Level0_column_compaction_trigger_size = props.GetIntProperty("matrixkv.level0_column_compaction_trigger_size");
+
+    if (props.HasProperty("matrixkv.level0_column_compaction_slowdown_size"))
+      nvm_setup->Level0_column_compaction_slowdown_size = props.GetIntProperty("matrixkv.level0_column_compaction_slowdown_size");
+
+    if (props.HasProperty("matrixkv.level0_column_compaction_stop_size"))
+      nvm_setup->Level0_column_compaction_stop_size = props.GetIntProperty("matrixkv.level0_column_compaction_stop_size");
+
+    options.nvm_setup.reset(nvm_setup);
+  }
+
 }
 
-  RocksDB::RocksDB(utils::Properties &props, bool preloaded)
+RocksDB::RocksDB(utils::Properties &props, bool preloaded)
 {
   InitializeOptions(props);
   std::string database_filename = props.GetProperty("rocksdb.database_filename");

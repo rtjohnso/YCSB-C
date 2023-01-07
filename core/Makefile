@@ -1,5 +1,10 @@
 CC=g++
 CFLAGS=-std=c++11 -c -g -O3 -Wall
+
+# CFLAGS += -fsanitize=memory -fsanitize-memory-track-origins
+# LDFLAGS += -fsanitize=memory
+
+
 CPPSOURCES=$(wildcard *.cc)
 CSOURCES=$(wildcard *.c)
 OBJECTS=$(CPPSOURCES:.cc=.o) $(CSOURCES:.c=.o)
