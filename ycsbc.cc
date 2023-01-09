@@ -377,15 +377,16 @@ void ParseCommandLine(int argc, const char *argv[],
         UsageMessage(argv[0]);
         exit(0);
       }
-      workload.filename.assign(argv[argindex]);
-      ifstream input(argv[argindex]);
+      workload = load_workload;
       try {
+        ifstream input(argv[argindex]);
         workload.props.Load(input);
+        input.close();
       } catch (const string &message) {
         cout << message << endl;
         exit(0);
       }
-      input.close();
+      workload.filename.assign(argv[argindex]);
       argindex++;
       if (strcmp(argv[argindex-2], "-W") == 0) {
         run_workloads.push_back(workload);
