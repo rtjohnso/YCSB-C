@@ -39,8 +39,11 @@ std::map<string, string> default_props = {
   // splinterdb config defaults
   //
   {"splinterdb.filename", "splinterdb.db"},
-  {"splinterdb.cache_size_mb", "4096"},
   {"splinterdb.disk_size_gb", "128"},
+
+  {"splinterdb.pmem_cache_size_mb", "0"},
+  {"splinterdb.dram_cache_size_mb", "1024"},
+  {"splinterdb.cache_log_checkpoint_interval", "0"},
 
   {"splinterdb.max_key_size", "24"},
   {"splinterdb.max_value_size", "100"},
@@ -63,7 +66,22 @@ std::map<string, string> default_props = {
   {"splinterdb.use_stats", "0"},
   {"splinterdb.reclaim_threshold", "0"},
 
+  //
+  // Rocksdb options
+  //
   {"rocksdb.database_filename", "rocksdb.db"},
+  {"rocksdb.block_cache_size_mib", "0"}, // Use rocksdb's default
+
+  //
+  // Matrixkv options
+  //
+  {"matrixkv.use_nvm_module", "0"},
+  {"matrixkv.pmem_path", ""},
+  // The following options will use MatrixKV's internal defaults if
+  // left unspecified.
+  //{"matrixkv.level0_column_compaction_trigger_size_mib", ""},
+  //{"matrixkv.level0_column_compaction_slowdown_size_mib", ""},
+  //{"matrixkv.level0_column_compaction_stop_size_mib", ""},
 };
 
 
@@ -286,6 +304,38 @@ void ParseCommandLine(int argc, const char *argv[],
       }
       props.SetProperty("dbname", argv[argindex]);
       argindex++;
+    } else if (strcmp(argv[argindex], "-pmem_cache_file") == 0) {
+      argindex++;
+      if (argindex >= argc) {
+        UsageMessage(argv[0]);
+        exit(0);
+      }
+      props.SetProperty("splinterdb.pmem_cache_file", argv[argindex]);
+      argindex++;
+    } else if (strcmp(argv[argindex], "-cache_log_checkpoint_interval") == 0) {
+      argindex++;
+      if (argindex >= argc) {
+        UsageMessage(argv[0]);
+        exit(0);
+      }
+      props.SetProperty("splinterdb.cache_log_checkpoint_interval", argv[argindex]);
+      argindex++;
+    } else if (strcmp(argv[argindex], "-dram_cache_size_mb") == 0) {
+      argindex++;
+      if (argindex >= argc) {
+        UsageMessage(argv[0]);
+        exit(0);
+      }
+      props.SetProperty("splinterdb.dram_cache_size_mb", argv[argindex]);
+      argindex++;
+    } else if (strcmp(argv[argindex], "-pmem_cache_size_mb") == 0) {
+      argindex++;
+      if (argindex >= argc) {
+        UsageMessage(argv[0]);
+        exit(0);
+      }
+      props.SetProperty("splinterdb.pmem_cache_size_mb", argv[argindex]);
+      argindex++;
     } else if (strcmp(argv[argindex], "-progress") == 0) {
       argindex++;
       if (argindex >= argc) {
@@ -328,15 +378,16 @@ void ParseCommandLine(int argc, const char *argv[],
         UsageMessage(argv[0]);
         exit(0);
       }
-      workload.filename.assign(argv[argindex]);
-      ifstream input(argv[argindex]);
+      workload = load_workload;
       try {
+        ifstream input(argv[argindex]);
         workload.props.Load(input);
+        input.close();
       } catch (const string &message) {
         cout << message << endl;
         exit(0);
       }
-      input.close();
+      workload.filename.assign(argv[argindex]);
       argindex++;
       if (strcmp(argv[argindex-2], "-W") == 0) {
         run_workloads.push_back(workload);

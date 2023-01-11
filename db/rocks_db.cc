@@ -20,12 +20,22 @@ namespace ycsbc {
 void RocksDB::InitializeOptions(utils::Properties &props)
 {
   const std::map<std::string, std::string> &m = (const std::map<std::string, std::string> &)props;
-  rocksdb::ConfigOptions copts;
+
+  std::vector<rocksdb::ColumnFamilyDescriptor> cf_descs;
 
   if (m.count("rocksdb.config_file")) {
-    std::vector<rocksdb::ColumnFamilyDescriptor> cf_descs;
-    assert(LoadOptionsFromFile(copts, m.at("rocksdb.config_file"), &options, &cf_descs) == rocksdb::Status::OK());
+    assert(LoadOptionsFromFile(m.at("rocksdb.config_file"), rocksdb::Env::Default(), &options, &cf_descs) == rocksdb::Status::OK());
   }
+
+  options.memtable_factory.reset(new rocksdb::SkipListFactory(0));
+  options.compression = rocksdb::kNoCompression;
+  options.max_open_files = -1;
+
+  rocksdb::PlainTableOptions plain_table_options;
+  plain_table_options.user_key_len = 16;
+  plain_table_options.bloom_bits_per_key = 10;
+  plain_table_options.hash_table_ratio = 0.75;
+  options.table_factory = std::shared_ptr<rocksdb::TableFactory>(rocksdb::NewPlainTableFactory(plain_table_options));
 
   std::unordered_map<std::string, std::string> options_map;
   for (auto tuple : m) {
@@ -39,6 +49,14 @@ void RocksDB::InitializeOptions(utils::Properties &props)
     } else if (tuple.first == "rocksdb.write_options.disableWAL") {
       long int disableWAL = props.GetIntProperty("rocksdb.write_options.disableWAL");
       woptions.disableWAL = disableWAL;
+    } else if (tuple.first == "rocksdb.block_cache_size_mib") {
+      uint64_t block_cache_size_mib = props.GetIntProperty("rocksdb.block_cache_size_mib");
+      if (0 < block_cache_size_mib) {
+        std::shared_ptr<rocksdb::Cache> cache = rocksdb::NewLRUCache(block_cache_size_mib * 1024 * 1024);
+        rocksdb::BlockBasedTableOptions table_options;
+        table_options.block_cache = cache;
+        options.table_factory.reset(rocksdb::NewBlockBasedTableFactory(table_options));
+      }
     } else if (tuple.first == "rocksdb.config_file") {
       // ignore it here -- loaded above
     } else if (tuple.first == "rocksdb.database_filename") {
@@ -48,12 +66,33 @@ void RocksDB::InitializeOptions(utils::Properties &props)
       assert(0);
     }
   }
-  rocksdb::Options new_options;
-  assert(GetDBOptionsFromMap(copts, options, options_map, &new_options) == rocksdb::Status::OK());
-  options = new_options;
+  assert(GetDBOptionsFromMap(options, options_map, &options, false, false) == rocksdb::Status::OK());
+
+  // Matrixkv options
+  if (props.GetIntProperty("matrixkv.use_nvm_module")) {
+    auto nvm_setup = new rocksdb::NvmSetup();
+    nvm_setup->use_nvm_module = true;
+    assert(props.HasProperty("matrixkv.pmem_path"));
+    nvm_setup->pmem_path = props.GetProperty("matrixkv.pmem_path");
+
+    if (props.HasProperty("matrixkv.level0_column_compaction_trigger_size_mib"))
+      nvm_setup->Level0_column_compaction_trigger_size =
+        1024 * 1024 * props.GetIntProperty("matrixkv.level0_column_compaction_trigger_size_mib");
+
+    if (props.HasProperty("matrixkv.level0_column_compaction_slowdown_size_mib"))
+      nvm_setup->Level0_column_compaction_slowdown_size =
+        1024 * 1024 * props.GetIntProperty("matrixkv.level0_column_compaction_slowdown_size_mib");
+
+    if (props.HasProperty("matrixkv.level0_column_compaction_stop_size_mib"))
+      nvm_setup->Level0_column_compaction_stop_size =
+        1024 * 1024 * props.GetIntProperty("matrixkv.level0_column_compaction_stop_size_mib");
+
+    options.nvm_setup.reset(nvm_setup);
+  }
+
 }
 
-  RocksDB::RocksDB(utils::Properties &props, bool preloaded)
+RocksDB::RocksDB(utils::Properties &props, bool preloaded)
 {
   InitializeOptions(props);
   std::string database_filename = props.GetProperty("rocksdb.database_filename");

@@ -19,6 +19,8 @@ namespace utils {
 
 class Properties {
  public:
+  bool HasProperty(const std::string &key) const;
+
   const std::string &GetProperty(const std::string &key,
       const std::string &default_value = std::string()) const;
   const std::string &operator[](const std::string &key) const;
@@ -54,6 +56,10 @@ inline long int Properties::GetIntProperty(const std::string &key) const {
 // inline int Properties::operator[](const std::string &key) const {
 //   return GetProperty(key);
 // }
+
+inline bool Properties::HasProperty(const std::string &key) const {
+  return 0 < properties_.count(key);
+}
 
 inline const std::map<std::string, std::string> &Properties::properties() const {
   return properties_;
