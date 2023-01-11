@@ -1,6 +1,6 @@
 CC=g++
 CFLAGS=-std=c++17 -g -Wall -pthread -I./
-LDFLAGS= -L ~/.local/lib -lpthread -ltbb -lhiredis -lsplinterdb -lrocksdb -lxxhash
+LDFLAGS= -L $(SPLINTER_INSTALL_DIR)/lib -L $(MATRIXKV_INSTALL_DIR)/lib -lpthread -ltbb -lhiredis -lsplinterdb -lrocksdb -lxxhash -lz -lbz2 -lpmem
 SUBDIRS=core db
 SUBCPPSRCS=$(wildcard core/*.cc) $(wildcard db/*.cc)
 SUBCSRCS=$(wildcard core/*.c) $(wildcard db/*.c)
