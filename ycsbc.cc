@@ -70,6 +70,7 @@ std::map<string, string> default_props = {
   // Rocksdb options
   //
   {"rocksdb.database_filename", "rocksdb.db"},
+  {"rocksdb.block_cache_size_mib", "0"}, // Use rocksdb's default
 
   //
   // Matrixkv options
@@ -78,9 +79,9 @@ std::map<string, string> default_props = {
   {"matrixkv.pmem_path", ""},
   // The following options will use MatrixKV's internal defaults if
   // left unspecified.
-  //{"matrixkv.level0_column_compaction_trigger_size", ""},
-  //{"matrixkv.level0_column_compaction_slowdown_size", ""},
-  //{"matrixkv.level0_column_compaction_stop_size", ""},
+  //{"matrixkv.level0_column_compaction_trigger_size_mib", ""},
+  //{"matrixkv.level0_column_compaction_slowdown_size_mib", ""},
+  //{"matrixkv.level0_column_compaction_stop_size_mib", ""},
 };
 
 
