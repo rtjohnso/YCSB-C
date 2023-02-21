@@ -372,13 +372,15 @@ void ParseCommandLine(int argc, const char *argv[],
                || strcmp(argv[argindex], "-P") == 0
                || strcmp(argv[argindex], "-L") == 0) {
       WorkloadProperties workload;
+      if (saw_load_workload) {
+        workload = load_workload;
+      }
       workload.preloaded = strcmp(argv[argindex], "-P") == 0;
       argindex++;
       if (argindex >= argc) {
         UsageMessage(argv[0]);
         exit(0);
       }
-      workload = load_workload;
       try {
         ifstream input(argv[argindex]);
         workload.props.Load(input);
