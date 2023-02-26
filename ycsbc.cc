@@ -39,7 +39,7 @@ std::map<string, string> default_props = {
   // splinterdb config defaults
   //
   {"splinterdb.filename", "splinterdb.db"},
-  {"splinterdb.disk_size_gb", "128"},
+  {"splinterdb.disk_size_gb", "512"},
 
   {"splinterdb.pmem_cache_size_mb", "0"},
   {"splinterdb.dram_cache_size_mb", "1024"},
