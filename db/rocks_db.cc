@@ -11,6 +11,7 @@
 #include <vector>
 #include <rocksdb/convenience.h>
 #include <rocksdb/utilities/options_util.h>
+#include <rocksdb/filter_policy.h>
 
 using std::string;
 using std::vector;
@@ -27,12 +28,12 @@ void RocksDB::InitializeOptions(utils::Properties &props)
     assert(LoadOptionsFromFile(copts, m.at("rocksdb.config_file"), &options, &cf_descs) == rocksdb::Status::OK());
   }
 
+  uint64_t cache_size = 8ULL * 1024 * 1024;
   std::unordered_map<std::string, std::string> options_map;
   for (auto tuple : m) {
     if (tuple.first.find("rocksdb.options.") == 0) {
       auto key = tuple.first.substr(strlen("rocksdb.options."), std::string::npos);
       options_map[key] = tuple.second;
-
     } else if (tuple.first == "rocksdb.write_options.sync") {
       long int sync = props.GetIntProperty("rocksdb.write_options.sync");
       woptions.sync = sync;
@@ -43,6 +44,8 @@ void RocksDB::InitializeOptions(utils::Properties &props)
       // ignore it here -- loaded above
     } else if (tuple.first == "rocksdb.database_filename") {
       // ignore it, used in constructor
+    } else if (tuple.first == "rocksdb.cache_size") {
+      cache_size = stoull(tuple.second);
     } else if (tuple.first.find("rocksdb.") == 0) {
       std::cout << "Unknown rocksdb config option " << tuple.first << std::endl;
       assert(0);
@@ -50,6 +53,15 @@ void RocksDB::InitializeOptions(utils::Properties &props)
   }
   rocksdb::Options new_options;
   assert(GetDBOptionsFromMap(copts, options, options_map, &new_options) == rocksdb::Status::OK());
+  rocksdb::BlockBasedTableOptions table_options;
+  table_options.block_align = 1;
+  table_options.block_size = 4096;
+  table_options.enable_index_compression = 0;
+  table_options.block_cache = rocksdb::NewLRUCache(cache_size);
+  table_options.filter_policy.reset(rocksdb::NewBloomFilterPolicy(10, false));
+  new_options.table_factory.reset(rocksdb::NewBlockBasedTableFactory(table_options));
+  new_options.env->SetBackgroundThreads(4, rocksdb::Env::LOW);
+  new_options.env->SetBackgroundThreads(12, rocksdb::Env::HIGH);
   options = new_options;
 }
 

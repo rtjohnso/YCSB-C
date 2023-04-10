@@ -1,5 +1,5 @@
 CC=g++
-CFLAGS=-std=c++17 -g -Wall -pthread -I./
+CFLAGS=-std=c++17 -g -Wall -pthread -I./ -L/usr/local/lib -O3
 LDFLAGS= -lpthread -ltbb -lhiredis -lsplinterdb -lrocksdb
 SUBDIRS=core db
 SUBCPPSRCS=$(wildcard core/*.cc) $(wildcard db/*.cc)

@@ -1,8 +1,8 @@
 # Yahoo! Cloud System Benchmark
 # Load: uniform rand inserts
 
-operationcount=692736661
-recordcount=692736661
+operationcount=1000000
+recordcount=1000000
 workload=com.yahoo.ycsb.workloads.CoreWorkload
 fieldcount=1
 
