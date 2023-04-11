@@ -43,9 +43,12 @@ class Client {
 };
 
 inline bool Client::DoInsert() {
-  workload_.NextSequenceKey(key);
-  workload_.UpdateValues(pairs);
-  return (db_.Insert(workload_.NextTable(), key, pairs) == DB::kOK);
+  if (workload_.NextSequenceKey(key, workload_.record_count())) {
+    workload_.UpdateValues(pairs);
+    return (db_.Insert(workload_.NextTable(), key, pairs) == DB::kOK);
+  } else {
+    return false;
+  }
 }
 
 inline bool Client::DoTransaction() {
@@ -136,7 +139,7 @@ inline int Client::TransactionUpdate() {
 
 inline int Client::TransactionInsert() {
   const std::string &table = workload_.NextTable();
-  workload_.NextSequenceKey(key);
+  workload_.NextSequenceKey(key, UINT64_MAX);
   std::vector<DB::KVPair> values;
   workload_.BuildValues(values);
   return db_.Insert(table, key, values);
