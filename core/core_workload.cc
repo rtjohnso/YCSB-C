@@ -98,9 +98,9 @@ void CoreWorkload::InitLoadWorkload(const utils::Properties &p, unsigned int nth
   insert_key_sequence_.Set(record_count_);
 
   key_generator_ = key_generator;
-  key_batch_start_ = key_generator_->Next();
-  key_generator_batch_.Set(key_batch_start_);
-  batch_remaining_ = key_generator_->BatchSize();
+  key_batch_ = key_generator_->NextBatch();
+  batch_remaining_ = key_batch_.second;
+  key_generator_batch_.Set(key_batch_.first);
 }
 
 

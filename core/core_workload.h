@@ -156,7 +156,7 @@ class CoreWorkload {
   virtual void BuildUpdate(std::vector<ycsbc::DB::KVPair> &update);
   
   virtual std::string NextTable() { return table_name_; }
-  virtual void NextSequenceKey(std::string &buffer); /// Used for loading data
+  virtual bool NextSequenceKey(std::string &buffer, uint64_t limit); /// Used for loading data
   virtual std::string NextTransactionKey(); /// Used for transactions
   virtual Operation NextOperation() { return op_chooser_.Next(); }
   virtual std::string NextFieldName();
@@ -164,6 +164,7 @@ class CoreWorkload {
   
   bool read_all_fields() const { return read_all_fields_; }
   bool write_all_fields() const { return write_all_fields_; }
+  uint64_t record_count() const { return record_count_; }
 
   CoreWorkload() :
       generator_(),
@@ -172,8 +173,9 @@ class CoreWorkload {
       write_all_fields_(false),
       field_len_generator_(NULL),
       key_generator_(NULL),
-      key_generator_batch_(0),
+      key_batch_(),
       batch_remaining_(0),
+      key_generator_batch_(0),
       op_chooser_(generator_),
       key_chooser_(NULL),
       field_chooser_(NULL),
@@ -203,9 +205,9 @@ class CoreWorkload {
   bool write_all_fields_;
   Generator<uint64_t> *field_len_generator_;
   BatchedCounterGenerator *key_generator_;
-  uint64_t key_batch_start_;
-  CounterGenerator key_generator_batch_;
+  batch key_batch_;
   uint64_t batch_remaining_;
+  CounterGenerator key_generator_batch_;
   DiscreteGenerator<Operation> op_chooser_;
   Generator<uint64_t> *key_chooser_;
   Generator<uint64_t> *field_chooser_;
@@ -222,17 +224,20 @@ inline void CoreWorkload::InitKeyBuffer(std::string &buffer) {
   buffer = BuildKeyName(0);
 }
 
-inline void CoreWorkload::NextSequenceKey(std::string &buffer) {
+  inline bool CoreWorkload::NextSequenceKey(std::string &buffer, uint64_t limit) {
   if (batch_remaining_ == 0) {
-    key_generator_->MarkCompleted(key_batch_start_);
-    key_batch_start_ = key_generator_->Next();
-    key_generator_batch_.Set(key_batch_start_);
-    batch_remaining_ = key_generator_->BatchSize();
+    key_generator_->MarkCompleted(key_batch_);
+    key_batch_ = key_generator_->NextBatch();
+    batch_remaining_ = key_batch_.second;
+    key_generator_batch_.Set(key_batch_.first);
+  }
+  if (limit <= key_generator_batch_.Last() + 1) {
+    return false;
   }
   uint64_t key_num = key_generator_batch_.Next();
   batch_remaining_--;
-  //buffer = BuildKeyName(key_num);
   UpdateKeyName(key_num, buffer);
+  return true;
 }
 
 inline std::string CoreWorkload::NextTransactionKey() {

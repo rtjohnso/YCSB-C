@@ -119,29 +119,45 @@ static inline void ProgressFinish(progress_mode pmode,
   ReportProgress(pmode, total_ops, global_op_counter, i % sync_interval, last_printed);
 }
 
-int DelegateClient(ycsbc::DB *db,
-                   ycsbc::CoreWorkload *wl,
-                   const uint64_t num_ops,
-                   bool is_loading,
-                   progress_mode pmode,
-                   uint64_t total_ops,
-                   volatile uint64_t *global_op_counter,
-                   volatile uint64_t *last_printed) {
+int DelegateClientLoad(ycsbc::DB *db,
+                       ycsbc::CoreWorkload *wl,
+                       progress_mode pmode,
+                       uint64_t total_ops,
+                       volatile uint64_t *global_op_counter,
+                       volatile uint64_t *last_printed) {
+  db->Init();
+  ycsbc::Client client(*db, *wl);
+  uint64_t did_one;
+  uint64_t oks = 0;
+
+
+  do {
+    did_one = client.DoInsert();
+    oks += did_one;
+    ProgressUpdate(pmode, total_ops, global_op_counter, oks, last_printed);
+  } while (did_one);
+
+  ProgressFinish(pmode, total_ops, global_op_counter, oks, last_printed);
+  db->Close();
+  return oks;
+}
+
+int DelegateClientWorkload(ycsbc::DB *db,
+                           ycsbc::CoreWorkload *wl,
+                           const uint64_t num_ops,
+                           progress_mode pmode,
+                           uint64_t total_ops,
+                           volatile uint64_t *global_op_counter,
+                           volatile uint64_t *last_printed) {
   db->Init();
   ycsbc::Client client(*db, *wl);
   uint64_t oks = 0;
 
-  if (is_loading) {
-    for (uint64_t i = 0; i < num_ops; ++i) {
-      oks += client.DoInsert();
-      ProgressUpdate(pmode, total_ops, global_op_counter, i, last_printed);
-    }
-  } else {
-    for (uint64_t i = 0; i < num_ops; ++i) {
-      oks += client.DoTransaction();
-      ProgressUpdate(pmode, total_ops, global_op_counter, i, last_printed);
-    }
+  for (uint64_t i = 0; i < num_ops; ++i) {
+    oks += client.DoTransaction();
+    ProgressUpdate(pmode, total_ops, global_op_counter, i, last_printed);
   }
+
   ProgressFinish(pmode, total_ops, global_op_counter, num_ops, last_printed);
   db->Close();
   return oks;
@@ -193,10 +209,8 @@ int main(const int argc, const char *argv[]) {
       uint64_t load_progress = 0;
       uint64_t last_printed = 0;
       for (unsigned int i = 0; i < num_threads; ++i) {
-        uint64_t start_op = (record_count * i) / num_threads;
-        uint64_t end_op = (record_count * (i + 1)) / num_threads;
-        actual_ops.emplace_back(async(launch::async, DelegateClient, db,
-                                      &wls[i], end_op - start_op, true,
+        actual_ops.emplace_back(async(launch::async, DelegateClientLoad, db,
+                                      &wls[i],
                                       pmode, record_count, &load_progress, &last_printed));
       }
       assert(actual_ops.size() == num_threads);
@@ -232,8 +246,8 @@ int main(const int argc, const char *argv[]) {
       for (unsigned int i = 0; i < num_threads; ++i) {
         uint64_t start_op = (total_ops * i) / num_threads;
         uint64_t end_op = (total_ops * (i + 1)) / num_threads;
-        actual_ops.emplace_back(async(launch::async, DelegateClient, db,
-                                      &wls[i], end_op - start_op, false,
+        actual_ops.emplace_back(async(launch::async, DelegateClientWorkload, db,
+                                      &wls[i], end_op - start_op,
                                       pmode, total_ops, &run_progress, &last_printed));
       }
       assert(actual_ops.size() == num_threads);
