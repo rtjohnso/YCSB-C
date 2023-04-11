@@ -95,7 +95,8 @@ int RocksDB::Read(const string &table,
 {
   string value;
   rocksdb::Status status = db->Get(roptions, rocksdb::Slice(key), &value);
-  assert(status.ok() || status.IsNotFound()); // TODO is it expected we're querying non-existing keys?
+  //assert(status.ok() || status.IsNotFound()); // TODO is it expected we're querying non-existing keys?
+  assert(status.ok());
   return DB::kOK;
 }
 
