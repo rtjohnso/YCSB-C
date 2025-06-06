@@ -105,6 +105,8 @@ void CoreWorkload::InitLoadWorkload(const utils::Properties &p, unsigned int nth
 
 
 void CoreWorkload::InitRunWorkload(const utils::Properties &p, unsigned int nthreads, unsigned int this_thread) {
+  op_chooser_.Reset();
+
   generator_.seed(this_thread * 3423452437 + 8349344563457);
 
   double read_proportion = std::stod(p.GetProperty(READ_PROPORTION_PROPERTY,
