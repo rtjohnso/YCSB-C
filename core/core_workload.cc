@@ -147,6 +147,8 @@ void CoreWorkload::InitRunWorkload(const utils::Properties &p, unsigned int nthr
   if (readmodifywrite_proportion > 0) {
     op_chooser_.AddValue(READMODIFYWRITE, readmodifywrite_proportion);
   }
+
+  op_chooser_.UpdateGenerator();
   
   if (request_dist == "uniform") {
     key_chooser_ = new UniformGenerator(generator_, 0, record_count_ - 1);
