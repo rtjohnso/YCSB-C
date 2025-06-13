@@ -105,6 +105,8 @@ void CoreWorkload::InitLoadWorkload(const utils::Properties &p, unsigned int nth
 
 
 void CoreWorkload::InitRunWorkload(const utils::Properties &p, unsigned int nthreads, unsigned int this_thread) {
+  op_chooser_.Reset();
+
   generator_.seed(this_thread * 3423452437 + 8349344563457);
 
   double read_proportion = std::stod(p.GetProperty(READ_PROPORTION_PROPERTY,
@@ -145,6 +147,8 @@ void CoreWorkload::InitRunWorkload(const utils::Properties &p, unsigned int nthr
   if (readmodifywrite_proportion > 0) {
     op_chooser_.AddValue(READMODIFYWRITE, readmodifywrite_proportion);
   }
+
+  op_chooser_.UpdateGenerator();
   
   if (request_dist == "uniform") {
     key_chooser_ = new UniformGenerator(generator_, 0, record_count_ - 1);
